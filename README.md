@@ -44,3 +44,4 @@ Luego visita `http://localhost:3000`.
 - Asteroides se parten en fragmentos más pequeños al ser destruidos
 - Partículas de explosión al destruir asteroides
 - Power-up **Velocidad**: aparece periódicamente en el campo; al recogerlo, la nave se mueve al doble de velocidad durante 5 segundos (el HUD muestra el tiempo restante)
+- **Estrella fugaz**: aparece periódicamente; se mueve mucho más rápido que los asteroides normales, vale 150 puntos (no se parte) y desaparece por sí sola al cabo de unos segundos. Destruirla o esquivarla, pero cuidado: al chocar mata a la nave.
