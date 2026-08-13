@@ -196,6 +196,8 @@ const SKINS = [
     name: 'Clásica',
     stroke: '#fff',
     flame: 'rgba(255, 130, 0, 0.85)',
+    scale: 1,
+    points: 1,
     draw(ctx, thrusting) {
       ctx.strokeStyle = this.stroke;
       ctx.lineWidth   = 1.5;
@@ -224,6 +226,8 @@ const SKINS = [
     name: 'Caza',
     stroke: '#7df',
     flame: 'rgba(0, 220, 255, 0.85)',
+    scale: 1,
+    points: 1,
     draw(ctx, thrusting) {
       ctx.strokeStyle = this.stroke;
       ctx.lineWidth   = 1.5;
@@ -254,6 +258,8 @@ const SKINS = [
     name: 'Saeta',
     stroke: '#f66',
     flame: 'rgba(255, 60, 60, 0.85)',
+    scale: 1,
+    points: 1,
     draw(ctx, thrusting) {
       ctx.strokeStyle = this.stroke;
       ctx.lineWidth   = 1.5;
@@ -282,6 +288,8 @@ const SKINS = [
     name: 'Cuña',
     stroke: '#6f6',
     flame: 'rgba(80, 255, 120, 0.85)',
+    scale: 1,
+    points: 1,
     draw(ctx, thrusting) {
       ctx.strokeStyle = this.stroke;
       ctx.lineWidth   = 1.5;
@@ -306,6 +314,38 @@ const SKINS = [
       }
     },
   },
+  {
+    name: 'Titán',
+    stroke: '#c78bff',
+    flame: 'rgba(190, 110, 255, 0.85)',
+    scale: 2,
+    points: 2,
+    draw(ctx, thrusting) {
+      ctx.strokeStyle = this.stroke;
+      ctx.lineWidth   = 1.5;
+      ctx.lineJoin    = 'round';
+
+      // Nave pesada morada: misma silueta que la clásica pero al doble de tamaño
+      ctx.beginPath();
+      ctx.moveTo( 20,  0);   // nariz
+      ctx.lineTo(  8, -8);   // hombro izquierdo
+      ctx.lineTo(-12, -9);   // ala izquierda
+      ctx.lineTo( -7,  0);   // muesca trasera
+      ctx.lineTo(-12,  9);   // ala derecha
+      ctx.lineTo(  8,  8);   // hombro derecho
+      ctx.closePath();
+      ctx.stroke();
+
+      if (thrusting && Math.random() > 0.35) {
+        ctx.beginPath();
+        ctx.moveTo(-8, -5);
+        ctx.lineTo(-8 - rand(7, 16), 0);
+        ctx.lineTo(-8,  5);
+        ctx.strokeStyle = this.flame;
+        ctx.stroke();
+      }
+    },
+  },
 ];
 
 let currentSkin = 0;
@@ -322,9 +362,14 @@ function cycleSkin() {
   currentSkin = (currentSkin + 1) % SKINS.length;
   try { localStorage.setItem('asteroids_skin', String(currentSkin)); } catch (e) { /* ignorar */ }
   skinNotice = 1.5;
+  if (ship) {
+    ship.scale  = SKINS[currentSkin].scale;
+    ship.radius = SHIP_RADIUS * ship.scale;
+  }
 }
 
 // ── Ship ──────────────────────────────────────────────────────────────────────
+const SHIP_RADIUS = 12;
 class Ship {
   constructor() { this.reset(); }
 
@@ -334,7 +379,8 @@ class Ship {
     this.angle  = -Math.PI / 2;
     this.vx     = 0;
     this.vy     = 0;
-    this.radius = 12;
+    this.radius = SHIP_RADIUS * SKINS[currentSkin].scale;
+    this.scale  = SKINS[currentSkin].scale;
     this.thrusting     = false;
     this.invincible    = 3;
     this.shootCooldown = 0;
@@ -376,7 +422,7 @@ class Ship {
   tryShoot() {
     if (this.shootCooldown > 0 || this.dead) return [];
     this.shootCooldown = 0.2;
-    const NOSE = 21;
+    const NOSE = 21 * this.scale;
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
     if (this.triple > 0) {
@@ -398,6 +444,7 @@ class Ship {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
+    ctx.scale(this.scale, this.scale);
     SKINS[currentSkin].draw(ctx, this.thrusting);
 
     // Escudo activo: burbuja pulsante
@@ -598,6 +645,11 @@ function killShip() {
   }
 }
 
+// Los puntos se multiplican según la skin activa (p.ej. Titán otorga x2).
+function addScore(base) {
+  score += base * SKINS[currentSkin].points;
+}
+
 // ── Update ────────────────────────────────────────────────────────────────────
 function update(dt) {
   if (skinNotice > 0) skinNotice -= dt;
@@ -658,7 +710,7 @@ function update(dt) {
       if (!a.dead && !b.dead && dist(b, a) < a.radius) {
         b.dead = true;
         a.dead = true;
-        score += POINTS[a.size];
+        addScore(POINTS[a.size]);
         explode(a.x, a.y, a.size * 5);
         newAsteroids.push(...a.split());
       }
@@ -673,7 +725,7 @@ function update(dt) {
       if (!s.dead && !b.dead && dist(b, s) < s.radius) {
         b.dead = true;
         s.dead = true;
-        score += SHOOTING_STAR_POINTS;
+        addScore(SHOOTING_STAR_POINTS);
         explode(s.x, s.y, 10);
       }
     }
@@ -684,9 +736,9 @@ function update(dt) {
   if (ship.shield > 0) {
     const shieldSplits = [];
     for (const a of asteroids) {
-      if (!a.dead && dist(ship, a) < SHIELD_RADIUS + a.radius * 0.82) {
+      if (!a.dead && dist(ship, a) < SHIELD_RADIUS * ship.scale + a.radius * 0.82) {
         a.dead = true;
-        score += POINTS[a.size];
+        addScore(POINTS[a.size]);
         explode(a.x, a.y, a.size * 5);
         shieldSplits.push(...a.split());
       }
@@ -704,9 +756,9 @@ function update(dt) {
   // Nave vs estrella fugaz (con escudo: la destruye; sin él: colisión letal)
   if (ship.shield > 0) {
     for (const s of shootingStars) {
-      if (!s.dead && dist(ship, s) < SHIELD_RADIUS + s.radius * 0.82) {
+      if (!s.dead && dist(ship, s) < SHIELD_RADIUS * ship.scale + s.radius * 0.82) {
         s.dead = true;
-        score += SHOOTING_STAR_POINTS;
+        addScore(SHOOTING_STAR_POINTS);
         explode(s.x, s.y, 10);
       }
     }
@@ -739,7 +791,7 @@ function drawLifeIcon(x, y) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(-Math.PI / 2);
-  ctx.scale(0.45, 0.45);
+  ctx.scale(0.45 / SKINS[currentSkin].scale, 0.45 / SKINS[currentSkin].scale);
   SKINS[currentSkin].draw(ctx, false);
   ctx.restore();
 }
@@ -755,6 +807,11 @@ function drawHUD() {
   ctx.fillText(`NIVEL ${level}`, W / 2, 26);
 
   let hudRow = 46;
+  if (SKINS[currentSkin].points > 1) {
+    ctx.fillStyle = SKINS[currentSkin].stroke;
+    ctx.fillText(`PUNTOS x${SKINS[currentSkin].points}`, W / 2, hudRow);
+    hudRow += 20;
+  }
   if (ship.boost > 0) {
     ctx.fillStyle = POWERUP_COLORS.boost;
     ctx.fillText(`VELOCIDAD ${Math.ceil(ship.boost)}`, W / 2, hudRow);
