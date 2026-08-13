@@ -1,0 +1,88 @@
+name: Issue triage
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 5
+          persist-credentials: false
+
+      - name: Gather repo context
+        id: context
+        run: |
+          branch="$(git rev-parse --abbrev-ref HEAD)"
+          head="$(git log -1 --format='%h - %s')"
+          recent="$(git log -5 --format='* %h %s (%an, %ad)' --date=short | tr '\n' ';')"
+          echo "branch=${branch}" >> "$GITHUB_OUTPUT"
+          echo "head=${head}" >> "$GITHUB_OUTPUT"
+          echo "recent=${recent}" >> "$GITHUB_OUTPUT"
+
+      - name: Classify, label and enrich issue
+        uses: actions/github-script@v7
+        env:
+          BRANCH: ${{ steps.context.outputs.branch }}
+          HEAD: ${{ steps.context.outputs.head }}
+          RECENT: ${{ steps.context.outputs.recent }}
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const number = issue.number;
+            const author = issue.user.login;
+            const created = issue.created_at;
+            const repo = context.repo;
+
+            const lower = (issue.body || '').toLowerCase();
+
+            const RULES = [
+              { label: 'bug',         regex: /bug|error|fallo|crash|no funciona|se rompe|rompio|se rompio/ },
+              { label: 'enhancement', regex: /feature|mejora|nuev[oa]|sugerencia|skin|power[- ]?up|estrella fugaz/ },
+              { label: 'question',    regex: /pregunta|duda|como se|como puedo|\?/ },
+            ];
+
+            const labels = RULES.filter(r => r.regex.test(lower)).map(r => r.label);
+            if (labels.length === 0) labels.push('sin clasificar');
+
+            for (const label of labels) {
+              try {
+                await github.rest.issues.getLabel({ ...repo, name: label });
+              } catch {
+                try {
+                  await github.rest.issues.createLabel({
+                    ...repo,
+                    name: label,
+                    color: label === 'bug' ? 'd73a4a'
+                         : label === 'enhancement' ? 'a2eeef'
+                         : label === 'question' ? 'd4c5f9'
+                         : 'bfd4f2',
+                  });
+                } catch (e) {
+                  console.log(`No se pudo crear el label ${label}: ${e.message}`);
+                }
+              }
+            }
+
+            await github.rest.issues.addLabels({ ...repo, issue_number: number, labels });
+
+            const marker = '<!-- GENERADO AUTOMATICAMENTE';
+            if (issue.body && issue.body.includes(marker)) {
+              console.log('La issue ya está enriquecida, no se modifica.');
+              return;
+            }
+
+            const contextBlock = `\n\n${marker}\n### Contexto generado automáticamente\n- Repo: ${repo.owner}/${repo.repo}\n- Fecha: ${created}\n- Autor: @${author}\n- Branch: ${process.env.BRANCH}\n- Último commit: ${process.env.HEAD}\n- Commits recientes:\n${process.env.RECENT.split(';').map(l => '  ' + l).join('\n')}\n\n### Checklist de revisión\n- [ ] Se reproduce el problema\n- [ ] Se indican pasos para reproducirlo\n- [ ] Se indica el comportamiento esperado\n- [ ] Se revisó game.js (fuente única de verdad)\n-->`;
+
+            await github.rest.issues.update({
+              ...repo,
+              issue_number: number,
+              body: issue.body + contextBlock,
+            });
