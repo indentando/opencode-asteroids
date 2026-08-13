@@ -188,6 +188,142 @@ class ShootingStar {
   }
 }
 
+// ── Skins ─────────────────────────────────────────────────────────────────────
+// Cada skin dibuja la nave en coordenadas locales (nariz hacia +x).
+// draw(ctx, thrusting) debe dibujar la silueta y, si thrusting, la llama.
+const SKINS = [
+  {
+    name: 'Clásica',
+    stroke: '#fff',
+    flame: 'rgba(255, 130, 0, 0.85)',
+    draw(ctx, thrusting) {
+      ctx.strokeStyle = this.stroke;
+      ctx.lineWidth   = 1.5;
+      ctx.lineJoin    = 'round';
+
+      // Silueta clásica: triángulo con muesca trasera
+      ctx.beginPath();
+      ctx.moveTo( 20,  0);   // nariz
+      ctx.lineTo(-12, -9);   // ala izquierda
+      ctx.lineTo( -7,  0);   // muesca trasera
+      ctx.lineTo(-12,  9);   // ala derecha
+      ctx.closePath();
+      ctx.stroke();
+
+      if (thrusting && Math.random() > 0.35) {
+        ctx.beginPath();
+        ctx.moveTo(-8, -4);
+        ctx.lineTo(-8 - rand(6, 14), 0);
+        ctx.lineTo(-8,  4);
+        ctx.strokeStyle = this.flame;
+        ctx.stroke();
+      }
+    },
+  },
+  {
+    name: 'Caza',
+    stroke: '#7df',
+    flame: 'rgba(0, 220, 255, 0.85)',
+    draw(ctx, thrusting) {
+      ctx.strokeStyle = this.stroke;
+      ctx.lineWidth   = 1.5;
+      ctx.lineJoin    = 'round';
+
+      // Perfil barrido: nariz larga y alas echadas hacia atrás
+      ctx.beginPath();
+      ctx.moveTo( 24,  0);
+      ctx.lineTo(  8, -6);
+      ctx.lineTo(-16, -8);
+      ctx.lineTo(-10,  0);
+      ctx.lineTo(-16,  8);
+      ctx.lineTo(  8,  6);
+      ctx.closePath();
+      ctx.stroke();
+
+      if (thrusting && Math.random() > 0.35) {
+        ctx.beginPath();
+        ctx.moveTo(-10, -3);
+        ctx.lineTo(-10 - rand(7, 16), 0);
+        ctx.lineTo(-10,  3);
+        ctx.strokeStyle = this.flame;
+        ctx.stroke();
+      }
+    },
+  },
+  {
+    name: 'Saeta',
+    stroke: '#f66',
+    flame: 'rgba(255, 60, 60, 0.85)',
+    draw(ctx, thrusting) {
+      ctx.strokeStyle = this.stroke;
+      ctx.lineWidth   = 1.5;
+      ctx.lineJoin    = 'round';
+
+      // Dardo estrecho con alas muy largas
+      ctx.beginPath();
+      ctx.moveTo( 22,  0);
+      ctx.lineTo( -4, -10);
+      ctx.lineTo( -8,  0);
+      ctx.lineTo( -4, 10);
+      ctx.closePath();
+      ctx.stroke();
+
+      if (thrusting && Math.random() > 0.35) {
+        ctx.beginPath();
+        ctx.moveTo(-8, -4);
+        ctx.lineTo(-8 - rand(5, 12), 0);
+        ctx.lineTo(-8,  4);
+        ctx.strokeStyle = this.flame;
+        ctx.stroke();
+      }
+    },
+  },
+  {
+    name: 'Cuña',
+    stroke: '#6f6',
+    flame: 'rgba(80, 255, 120, 0.85)',
+    draw(ctx, thrusting) {
+      ctx.strokeStyle = this.stroke;
+      ctx.lineWidth   = 1.5;
+      ctx.lineJoin    = 'round';
+
+      // Cuña ancha y plana
+      ctx.beginPath();
+      ctx.moveTo( 16,  0);
+      ctx.lineTo(-16, -12);
+      ctx.lineTo( -4,  0);
+      ctx.lineTo(-16, 12);
+      ctx.closePath();
+      ctx.stroke();
+
+      if (thrusting && Math.random() > 0.35) {
+        ctx.beginPath();
+        ctx.moveTo(-8, -4);
+        ctx.lineTo(-8 - rand(6, 14), 0);
+        ctx.lineTo(-8,  4);
+        ctx.strokeStyle = this.flame;
+        ctx.stroke();
+      }
+    },
+  },
+];
+
+let currentSkin = 0;
+let skinNotice  = 0;
+
+(function loadSkin() {
+  try {
+    const saved = parseInt(localStorage.getItem('asteroids_skin'), 10);
+    if (saved >= 0 && saved < SKINS.length) currentSkin = saved;
+  } catch (e) { /* localStorage no disponible */ }
+})();
+
+function cycleSkin() {
+  currentSkin = (currentSkin + 1) % SKINS.length;
+  try { localStorage.setItem('asteroids_skin', String(currentSkin)); } catch (e) { /* ignorar */ }
+  skinNotice = 1.5;
+}
+
 // ── Ship ──────────────────────────────────────────────────────────────────────
 class Ship {
   constructor() { this.reset(); }
@@ -248,29 +384,7 @@ class Ship {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth   = 1.5;
-    ctx.lineJoin    = 'round';
-
-    // Silueta clásica: triángulo con muesca trasera
-    ctx.beginPath();
-    ctx.moveTo( 20,  0);   // nariz
-    ctx.lineTo(-12, -9);   // ala izquierda
-    ctx.lineTo( -7,  0);   // muesca trasera
-    ctx.lineTo(-12,  9);   // ala derecha
-    ctx.closePath();
-    ctx.stroke();
-
-    // Llama del propulsor
-    if (this.thrusting && Math.random() > 0.35) {
-      ctx.beginPath();
-      ctx.moveTo(-8, -4);
-      ctx.lineTo(-8 - rand(6, 14), 0);
-      ctx.lineTo(-8,  4);
-      ctx.strokeStyle = 'rgba(255, 130, 0, 0.85)';
-      ctx.stroke();
-    }
-
+    SKINS[currentSkin].draw(ctx, this.thrusting);
     ctx.restore();
   }
 }
@@ -433,6 +547,9 @@ function killShip() {
 
 // ── Update ────────────────────────────────────────────────────────────────────
 function update(dt) {
+  if (skinNotice > 0) skinNotice -= dt;
+  if (pressed('KeyC')) cycleSkin();
+
   if (state === 'gameover') {
     if (pressed('Space')) initGame();
     particles.forEach(p => p.update(dt));
@@ -548,16 +665,8 @@ function drawLifeIcon(x, y) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(-Math.PI / 2);
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth   = 1.2;
-  ctx.lineJoin    = 'round';
-  ctx.beginPath();
-  ctx.moveTo( 9,  0);
-  ctx.lineTo(-6, -5);
-  ctx.lineTo(-3,  0);
-  ctx.lineTo(-6,  5);
-  ctx.closePath();
-  ctx.stroke();
+  ctx.scale(0.45, 0.45);
+  SKINS[currentSkin].draw(ctx, false);
   ctx.restore();
 }
 
@@ -603,6 +712,13 @@ function draw() {
   ship.draw();
 
   drawHUD();
+
+  if (skinNotice > 0) {
+    ctx.textAlign   = 'center';
+    ctx.fillStyle   = `rgba(255,255,255,${Math.min(1, skinNotice / 0.4).toFixed(2)})`;
+    ctx.font        = '16px monospace';
+    ctx.fillText(`SKIN: ${SKINS[currentSkin].name}`, W / 2, H - 24);
+  }
 
   if (state === 'gameover')
     drawOverlay('GAME OVER', `PUNTAJE: ${score}   —   ESPACIO PARA REINICIAR`);
