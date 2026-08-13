@@ -196,6 +196,8 @@ const SKINS = [
     name: 'Clásica',
     stroke: '#fff',
     flame: 'rgba(255, 130, 0, 0.85)',
+    scale: 1,
+    multiplier: 1,
     draw(ctx, thrusting) {
       ctx.strokeStyle = this.stroke;
       ctx.lineWidth   = 1.5;
@@ -224,6 +226,8 @@ const SKINS = [
     name: 'Caza',
     stroke: '#7df',
     flame: 'rgba(0, 220, 255, 0.85)',
+    scale: 1,
+    multiplier: 1,
     draw(ctx, thrusting) {
       ctx.strokeStyle = this.stroke;
       ctx.lineWidth   = 1.5;
@@ -254,6 +258,8 @@ const SKINS = [
     name: 'Saeta',
     stroke: '#f66',
     flame: 'rgba(255, 60, 60, 0.85)',
+    scale: 1,
+    multiplier: 1,
     draw(ctx, thrusting) {
       ctx.strokeStyle = this.stroke;
       ctx.lineWidth   = 1.5;
@@ -282,6 +288,8 @@ const SKINS = [
     name: 'Cuña',
     stroke: '#6f6',
     flame: 'rgba(80, 255, 120, 0.85)',
+    scale: 1,
+    multiplier: 1,
     draw(ctx, thrusting) {
       ctx.strokeStyle = this.stroke;
       ctx.lineWidth   = 1.5;
@@ -306,6 +314,38 @@ const SKINS = [
       }
     },
   },
+  {
+    name: 'Púrpura',
+    stroke: '#b44dff',
+    flame: 'rgba(200, 120, 255, 0.85)',
+    scale: 2,
+    multiplier: 2,
+    draw(ctx, thrusting) {
+      ctx.strokeStyle = this.stroke;
+      ctx.lineWidth   = 1.5;
+      ctx.lineJoin    = 'round';
+
+      // Caza ancho con morro cortante; el doble de grande por scale: 2
+      ctx.beginPath();
+      ctx.moveTo( 22,  0);
+      ctx.lineTo(  4, -6);
+      ctx.lineTo(-14, -10);
+      ctx.lineTo( -8,  0);
+      ctx.lineTo(-14, 10);
+      ctx.lineTo(  4,  6);
+      ctx.closePath();
+      ctx.stroke();
+
+      if (thrusting && Math.random() > 0.35) {
+        ctx.beginPath();
+        ctx.moveTo(-10, -4);
+        ctx.lineTo(-10 - rand(8, 18), 0);
+        ctx.lineTo(-10,  4);
+        ctx.strokeStyle = this.flame;
+        ctx.stroke();
+      }
+    },
+  },
 ];
 
 let currentSkin = 0;
@@ -321,10 +361,13 @@ let skinNotice  = 0;
 function cycleSkin() {
   currentSkin = (currentSkin + 1) % SKINS.length;
   try { localStorage.setItem('asteroids_skin', String(currentSkin)); } catch (e) { /* ignorar */ }
+  if (ship) ship.radius = BASE_RADIUS * SKINS[currentSkin].scale;
   skinNotice = 1.5;
 }
 
 // ── Ship ──────────────────────────────────────────────────────────────────────
+const BASE_RADIUS = 12;  // radio de colisión de la nave con escala 1
+
 class Ship {
   constructor() { this.reset(); }
 
@@ -334,7 +377,7 @@ class Ship {
     this.angle  = -Math.PI / 2;
     this.vx     = 0;
     this.vy     = 0;
-    this.radius = 12;
+    this.radius = BASE_RADIUS * SKINS[currentSkin].scale;
     this.thrusting     = false;
     this.invincible    = 3;
     this.shootCooldown = 0;
@@ -376,7 +419,7 @@ class Ship {
   tryShoot() {
     if (this.shootCooldown > 0 || this.dead) return [];
     this.shootCooldown = 0.2;
-    const NOSE = 21;
+    const NOSE = 21 * SKINS[currentSkin].scale;
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
     if (this.triple > 0) {
@@ -398,6 +441,7 @@ class Ship {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
+    ctx.scale(SKINS[currentSkin].scale, SKINS[currentSkin].scale);
     SKINS[currentSkin].draw(ctx, this.thrusting);
 
     // Escudo activo: burbuja pulsante
@@ -586,6 +630,10 @@ function explode(x, y, count = 8) {
   for (let i = 0; i < count; i++) particles.push(new Particle(x, y));
 }
 
+function addScore(base) {
+  score += base * SKINS[currentSkin].multiplier;
+}
+
 function killShip() {
   explode(ship.x, ship.y, 14);
   ship.dead = true;
@@ -658,7 +706,7 @@ function update(dt) {
       if (!a.dead && !b.dead && dist(b, a) < a.radius) {
         b.dead = true;
         a.dead = true;
-        score += POINTS[a.size];
+        addScore(POINTS[a.size]);
         explode(a.x, a.y, a.size * 5);
         newAsteroids.push(...a.split());
       }
@@ -673,7 +721,7 @@ function update(dt) {
       if (!s.dead && !b.dead && dist(b, s) < s.radius) {
         b.dead = true;
         s.dead = true;
-        score += SHOOTING_STAR_POINTS;
+        addScore(SHOOTING_STAR_POINTS);
         explode(s.x, s.y, 10);
       }
     }
@@ -686,7 +734,7 @@ function update(dt) {
     for (const a of asteroids) {
       if (!a.dead && dist(ship, a) < SHIELD_RADIUS + a.radius * 0.82) {
         a.dead = true;
-        score += POINTS[a.size];
+        addScore(POINTS[a.size]);
         explode(a.x, a.y, a.size * 5);
         shieldSplits.push(...a.split());
       }
@@ -706,7 +754,7 @@ function update(dt) {
     for (const s of shootingStars) {
       if (!s.dead && dist(ship, s) < SHIELD_RADIUS + s.radius * 0.82) {
         s.dead = true;
-        score += SHOOTING_STAR_POINTS;
+        addScore(SHOOTING_STAR_POINTS);
         explode(s.x, s.y, 10);
       }
     }
@@ -739,7 +787,7 @@ function drawLifeIcon(x, y) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(-Math.PI / 2);
-  ctx.scale(0.45, 0.45);
+  ctx.scale(0.45 / SKINS[currentSkin].scale, 0.45 / SKINS[currentSkin].scale);
   SKINS[currentSkin].draw(ctx, false);
   ctx.restore();
 }
