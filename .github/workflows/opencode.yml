@@ -32,13 +32,13 @@ jobs:
           git config --global "http.https://github.com/.extraheader" \
             "AUTHORIZATION: basic $(printf '%s' "x-access-token:${GITHUB_TOKEN}" | base64 -w0)"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.OPENCODE_TOKEN }}
 
       - name: Run opencode
         uses: anomalyco/opencode/github@latest
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.OPENCODE_TOKEN }}
         with:
           model: opencode/big-pickle
           use_github_token: true
